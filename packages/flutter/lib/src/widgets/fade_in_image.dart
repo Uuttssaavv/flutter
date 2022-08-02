@@ -75,9 +75,10 @@ class FadeInImage extends StatefulWidget {
   /// If [excludeFromSemantics] is true, then [imageSemanticLabel] will be ignored.
   const FadeInImage({
     super.key,
-    required this.placeholder,
+    this.placeholder,
     this.placeholderErrorBuilder,
     required this.image,
+    this.loadingBuilder,
     this.imageErrorBuilder,
     this.excludeFromSemantics = false,
     this.imageSemanticLabel,
@@ -92,15 +93,38 @@ class FadeInImage extends StatefulWidget {
     this.alignment = Alignment.center,
     this.repeat = ImageRepeat.noRepeat,
     this.matchTextDirection = false,
-  }) : assert(placeholder != null),
-       assert(image != null),
-       assert(fadeOutDuration != null),
-       assert(fadeOutCurve != null),
-       assert(fadeInDuration != null),
-       assert(fadeInCurve != null),
-       assert(alignment != null),
-       assert(repeat != null),
-       assert(matchTextDirection != null);
+  })  : assert(placeholder != null || loadingBuilder != null),
+        assert(placeholder == null || loadingBuilder == null),
+        assert(image != null),
+        assert(fadeOutDuration != null),
+        assert(fadeOutCurve != null),
+        assert(fadeInDuration != null),
+        assert(fadeInCurve != null),
+        assert(alignment != null),
+        assert(repeat != null),
+        assert(matchTextDirection != null);
+
+  /// A builder that specifies the widget to display to the user while an image
+  /// is still loading.
+  ///
+  /// If this is null, and the image is loaded incrementally (e.g. over a
+  /// network), the user will receive no indication of the progress as the
+  /// bytes of the image are loaded.
+  ///
+  /// For more information on how to interpret the arguments that are passed to
+  /// this builder, see the documentation on [ImageLoadingBuilder].
+  ///
+  /// ## Performance implications
+  ///
+  /// If a [loadingBuilder] is specified for an image, the [FadeInImage] widget is
+  /// likely to be rebuilt on every
+  /// [rendering pipeline frame](rendering/RendererBinding/drawFrame.html) until
+  /// the image has loaded. This is useful for cases such as displaying a loading
+  /// progress indicator, but for simpler cases such as displaying a placeholder
+  /// widget that doesn't depend on the loading progress (e.g. static "loading"
+  /// text), [placeholder] will likely work and not incur as much cost.
+
+  final ImageLoadingBuilder? loadingBuilder;
 
   /// Creates a widget that uses a placeholder image stored in memory while
   /// loading the final image from the network.
@@ -132,9 +156,10 @@ class FadeInImage extends StatefulWidget {
   ///    the network.
   FadeInImage.memoryNetwork({
     super.key,
-    required Uint8List placeholder,
+    Uint8List? placeholder,
     this.placeholderErrorBuilder,
     required String image,
+    this.loadingBuilder,
     this.imageErrorBuilder,
     double placeholderScale = 1.0,
     double imageScale = 1.0,
@@ -155,19 +180,26 @@ class FadeInImage extends StatefulWidget {
     int? placeholderCacheHeight,
     int? imageCacheWidth,
     int? imageCacheHeight,
-  }) : assert(placeholder != null),
-       assert(image != null),
-       assert(placeholderScale != null),
-       assert(imageScale != null),
-       assert(fadeOutDuration != null),
-       assert(fadeOutCurve != null),
-       assert(fadeInDuration != null),
-       assert(fadeInCurve != null),
-       assert(alignment != null),
-       assert(repeat != null),
-       assert(matchTextDirection != null),
-       placeholder = ResizeImage.resizeIfNeeded(placeholderCacheWidth, placeholderCacheHeight, MemoryImage(placeholder, scale: placeholderScale)),
-       image = ResizeImage.resizeIfNeeded(imageCacheWidth, imageCacheHeight, NetworkImage(image, scale: imageScale));
+  })  : assert(placeholder != null || loadingBuilder != null),
+        assert(placeholder == null || loadingBuilder == null),
+        assert(image != null),
+        assert(placeholderScale != null),
+        assert(imageScale != null),
+        assert(fadeOutDuration != null),
+        assert(fadeOutCurve != null),
+        assert(fadeInDuration != null),
+        assert(fadeInCurve != null),
+        assert(alignment != null),
+        assert(repeat != null),
+        assert(matchTextDirection != null),
+        placeholder = placeholder == null
+            ? null
+            : ResizeImage.resizeIfNeeded(
+                placeholderCacheWidth,
+                placeholderCacheHeight,
+                MemoryImage(placeholder, scale: placeholderScale)),
+        image = ResizeImage.resizeIfNeeded(imageCacheWidth, imageCacheHeight,
+            NetworkImage(image, scale: imageScale));
 
   /// Creates a widget that uses a placeholder image stored in an asset bundle
   /// while loading the final image from the network.
@@ -202,12 +234,13 @@ class FadeInImage extends StatefulWidget {
   ///    the network.
   FadeInImage.assetNetwork({
     super.key,
-    required String placeholder,
+    String? placeholder,
     this.placeholderErrorBuilder,
     required String image,
     this.imageErrorBuilder,
     AssetBundle? bundle,
     double? placeholderScale,
+    this.loadingBuilder,
     double imageScale = 1.0,
     this.excludeFromSemantics = false,
     this.imageSemanticLabel,
@@ -226,23 +259,34 @@ class FadeInImage extends StatefulWidget {
     int? placeholderCacheHeight,
     int? imageCacheWidth,
     int? imageCacheHeight,
-  }) : assert(placeholder != null),
-       assert(image != null),
-       placeholder = placeholderScale != null
-         ? ResizeImage.resizeIfNeeded(placeholderCacheWidth, placeholderCacheHeight, ExactAssetImage(placeholder, bundle: bundle, scale: placeholderScale))
-         : ResizeImage.resizeIfNeeded(placeholderCacheWidth, placeholderCacheHeight, AssetImage(placeholder, bundle: bundle)),
-       assert(imageScale != null),
-       assert(fadeOutDuration != null),
-       assert(fadeOutCurve != null),
-       assert(fadeInDuration != null),
-       assert(fadeInCurve != null),
-       assert(alignment != null),
-       assert(repeat != null),
-       assert(matchTextDirection != null),
-       image = ResizeImage.resizeIfNeeded(imageCacheWidth, imageCacheHeight, NetworkImage(image, scale: imageScale));
+  })  : assert(placeholder != null || loadingBuilder != null),
+        assert(placeholder == null || loadingBuilder == null),
+        assert(image != null),
+        placeholder = placeholder == null
+            ? null
+            : placeholderScale != null
+                ? ResizeImage.resizeIfNeeded(
+                    placeholderCacheWidth,
+                    placeholderCacheHeight,
+                    ExactAssetImage(placeholder,
+                        bundle: bundle, scale: placeholderScale))
+                : ResizeImage.resizeIfNeeded(
+                    placeholderCacheWidth,
+                    placeholderCacheHeight,
+                    AssetImage(placeholder, bundle: bundle)),
+        assert(imageScale != null),
+        assert(fadeOutDuration != null),
+        assert(fadeOutCurve != null),
+        assert(fadeInDuration != null),
+        assert(fadeInCurve != null),
+        assert(alignment != null),
+        assert(repeat != null),
+        assert(matchTextDirection != null),
+        image = ResizeImage.resizeIfNeeded(imageCacheWidth, imageCacheHeight,
+            NetworkImage(image, scale: imageScale));
 
   /// Image displayed while the target [image] is loading.
-  final ImageProvider placeholder;
+  final ImageProvider? placeholder;
 
   /// A builder function that is called if an error occurs during placeholder
   /// image loading.
@@ -365,20 +409,23 @@ class FadeInImage extends StatefulWidget {
 }
 
 class _FadeInImageState extends State<FadeInImage> {
-  static const Animation<double> _kOpaqueAnimation = AlwaysStoppedAnimation<double>(1.0);
+  static const Animation<double> _kOpaqueAnimation =
+      AlwaysStoppedAnimation<double>(1.0);
   bool targetLoaded = false;
 
   // These ProxyAnimations are changed to the fade in animation by
   // [_AnimatedFadeOutFadeInState]. Otherwise these animations are reset to
   // their defaults by [_resetAnimations].
   final ProxyAnimation _imageAnimation = ProxyAnimation(_kOpaqueAnimation);
-  final ProxyAnimation _placeholderAnimation = ProxyAnimation(_kOpaqueAnimation);
+  final ProxyAnimation _placeholderAnimation =
+      ProxyAnimation(_kOpaqueAnimation);
 
   Image _image({
     required ImageProvider image,
     ImageErrorWidgetBuilder? errorBuilder,
     ImageFrameBuilder? frameBuilder,
     BoxFit? fit,
+    ImageLoadingBuilder? loadingBuilder,
     required Animation<double> opacity,
   }) {
     assert(image != null);
@@ -395,6 +442,7 @@ class _FadeInImageState extends State<FadeInImage> {
       matchTextDirection: widget.matchTextDirection,
       gaplessPlayback: true,
       excludeFromSemantics: true,
+      loadingBuilder: loadingBuilder,
     );
   }
 
@@ -405,7 +453,8 @@ class _FadeInImageState extends State<FadeInImage> {
       errorBuilder: widget.imageErrorBuilder,
       opacity: _imageAnimation,
       fit: widget.fit,
-      frameBuilder: (BuildContext context, Widget child, int? frame, bool wasSynchronouslyLoaded) {
+      frameBuilder: (BuildContext context, Widget child, int? frame,
+          bool wasSynchronouslyLoaded) {
         if (wasSynchronouslyLoaded || frame != null) {
           targetLoaded = true;
         }
@@ -413,16 +462,24 @@ class _FadeInImageState extends State<FadeInImage> {
           target: child,
           targetProxyAnimation: _imageAnimation,
           placeholder: _image(
-            image: widget.placeholder,
+            image:
+                widget.placeholder == null ? widget.image : widget.placeholder!,
             errorBuilder: widget.placeholderErrorBuilder,
             opacity: _placeholderAnimation,
             fit: widget.placeholderFit ?? widget.fit,
+            loadingBuilder: targetLoaded
+                ? null
+                : widget.loadingBuilder != null
+                    ? widget.loadingBuilder
+                    : null,
           ),
           placeholderProxyAnimation: _placeholderAnimation,
           isTargetLoaded: targetLoaded,
           wasSynchronouslyLoaded: wasSynchronouslyLoaded,
           fadeInDuration: widget.fadeInDuration,
-          fadeOutDuration: widget.fadeOutDuration,
+          fadeOutDuration: widget.placeholder == null
+              ? Duration.zero
+              : widget.fadeOutDuration,
           fadeInCurve: widget.fadeInCurve,
           fadeOutCurve: widget.fadeOutCurve,
         );
@@ -454,15 +511,15 @@ class _AnimatedFadeOutFadeIn extends ImplicitlyAnimatedWidget {
     required this.fadeInDuration,
     required this.fadeInCurve,
     required this.wasSynchronouslyLoaded,
-  }) : assert(target != null),
-       assert(placeholder != null),
-       assert(isTargetLoaded != null),
-       assert(fadeOutDuration != null),
-       assert(fadeOutCurve != null),
-       assert(fadeInDuration != null),
-       assert(fadeInCurve != null),
-       assert(!wasSynchronouslyLoaded || isTargetLoaded),
-       super(duration: fadeInDuration + fadeOutDuration);
+  })  : assert(target != null),
+        assert(placeholder != null),
+        assert(isTargetLoaded != null),
+        assert(fadeOutDuration != null),
+        assert(fadeOutCurve != null),
+        assert(fadeInDuration != null),
+        assert(fadeInCurve != null),
+        assert(!wasSynchronouslyLoaded || isTargetLoaded),
+        super(duration: fadeInDuration + fadeOutDuration);
 
   final Widget target;
   final ProxyAnimation targetProxyAnimation;
@@ -479,7 +536,8 @@ class _AnimatedFadeOutFadeIn extends ImplicitlyAnimatedWidget {
   _AnimatedFadeOutFadeInState createState() => _AnimatedFadeOutFadeInState();
 }
 
-class _AnimatedFadeOutFadeInState extends ImplicitlyAnimatedWidgetState<_AnimatedFadeOutFadeIn> {
+class _AnimatedFadeOutFadeInState
+    extends ImplicitlyAnimatedWidgetState<_AnimatedFadeOutFadeIn> {
   Tween<double>? _targetOpacity;
   Tween<double>? _placeholderOpacity;
   Animation<double>? _targetOpacityAnimation;
@@ -506,27 +564,33 @@ class _AnimatedFadeOutFadeInState extends ImplicitlyAnimatedWidgetState<_Animate
       return;
     }
 
-    _placeholderOpacityAnimation = animation.drive(TweenSequence<double>(<TweenSequenceItem<double>>[
-      TweenSequenceItem<double>(
-        tween: _placeholderOpacity!.chain(CurveTween(curve: widget.fadeOutCurve)),
-        weight: widget.fadeOutDuration.inMilliseconds.toDouble(),
-      ),
+    _placeholderOpacityAnimation =
+        animation.drive(TweenSequence<double>(<TweenSequenceItem<double>>[
+      if (widget.fadeOutDuration != Duration.zero)
+        TweenSequenceItem<double>(
+          tween: _placeholderOpacity!
+              .chain(CurveTween(curve: widget.fadeOutCurve)),
+          weight: widget.fadeOutDuration.inMilliseconds.toDouble(),
+        ),
       TweenSequenceItem<double>(
         tween: ConstantTween<double>(0),
         weight: widget.fadeInDuration.inMilliseconds.toDouble(),
       ),
-    ]))..addStatusListener((AnimationStatus status) {
-      if (_placeholderOpacityAnimation!.isCompleted) {
-        // Need to rebuild to remove placeholder now that it is invisible.
-        setState(() {});
-      }
-    });
+    ]))
+          ..addStatusListener((AnimationStatus status) {
+            if (_placeholderOpacityAnimation!.isCompleted) {
+              // Need to rebuild to remove placeholder now that it is invisible.
+              setState(() {});
+            }
+          });
 
-    _targetOpacityAnimation = animation.drive(TweenSequence<double>(<TweenSequenceItem<double>>[
-      TweenSequenceItem<double>(
-        tween: ConstantTween<double>(0),
-        weight: widget.fadeOutDuration.inMilliseconds.toDouble(),
-      ),
+    _targetOpacityAnimation =
+        animation.drive(TweenSequence<double>(<TweenSequenceItem<double>>[
+      if (widget.fadeOutDuration != Duration.zero)
+        TweenSequenceItem<double>(
+          tween: ConstantTween<double>(0),
+          weight: widget.fadeOutDuration.inMilliseconds.toDouble(),
+        ),
       TweenSequenceItem<double>(
         tween: _targetOpacity!.chain(CurveTween(curve: widget.fadeInCurve)),
         weight: widget.fadeInDuration.inMilliseconds.toDouble(),
@@ -539,7 +603,8 @@ class _AnimatedFadeOutFadeInState extends ImplicitlyAnimatedWidgetState<_Animate
 
   @override
   Widget build(BuildContext context) {
-    if (widget.wasSynchronouslyLoaded || _placeholderOpacityAnimation!.isCompleted) {
+    if (widget.wasSynchronouslyLoaded ||
+        _placeholderOpacityAnimation!.isCompleted) {
       return widget.target;
     }
 
@@ -559,7 +624,9 @@ class _AnimatedFadeOutFadeInState extends ImplicitlyAnimatedWidgetState<_Animate
   @override
   void debugFillProperties(DiagnosticPropertiesBuilder properties) {
     super.debugFillProperties(properties);
-    properties.add(DiagnosticsProperty<Animation<double>>('targetOpacity', _targetOpacityAnimation));
-    properties.add(DiagnosticsProperty<Animation<double>>('placeholderOpacity', _placeholderOpacityAnimation));
+    properties.add(DiagnosticsProperty<Animation<double>>(
+        'targetOpacity', _targetOpacityAnimation));
+    properties.add(DiagnosticsProperty<Animation<double>>(
+        'placeholderOpacity', _placeholderOpacityAnimation));
   }
 }
