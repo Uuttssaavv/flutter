@@ -36,9 +36,9 @@ import 'icon_theme_data.dart';
 /// ![The following code snippet would generate a row of icons consisting of a pink heart, a green musical note, and a blue umbrella, each progressively bigger than the last.](https://flutter.github.io/assets-for-api-docs/assets/widgets/icon.png)
 ///
 /// ```dart
-/// Row(
+/// const Row(
 ///   mainAxisAlignment: MainAxisAlignment.spaceAround,
-///   children: const <Widget>[
+///   children: <Widget>[
 ///     Icon(
 ///       Icons.favorite,
 ///       color: Colors.pink,
@@ -240,6 +240,14 @@ class Icon extends StatelessWidget {
 
     final double? iconSize = size ?? iconTheme.size;
 
+    final double? iconFill = fill ?? iconTheme.fill;
+
+    final double? iconWeight = weight ?? iconTheme.weight;
+
+    final double? iconGrade = grade ?? iconTheme.grade;
+
+    final double? iconOpticalSize = opticalSize ?? iconTheme.opticalSize;
+
     final List<Shadow>? iconShadows = shadows ?? iconTheme.shadows;
 
     if (icon == null) {
@@ -262,10 +270,10 @@ class Icon extends StatelessWidget {
         text: String.fromCharCode(icon!.codePoint),
         style: TextStyle(
           fontVariations: <FontVariation>[
-            if (fill != null) FontVariation('FILL', fill!),
-            if (weight != null) FontVariation('wght', weight!),
-            if (grade != null) FontVariation('GRAD', grade!),
-            if (opticalSize != null) FontVariation('opsz', opticalSize!),
+            if (iconFill != null) FontVariation('FILL', iconFill),
+            if (iconWeight != null) FontVariation('wght', iconWeight),
+            if (iconGrade != null) FontVariation('GRAD', iconGrade),
+            if (iconOpticalSize != null) FontVariation('opsz', iconOpticalSize),
           ],
           inherit: false,
           color: iconColor,

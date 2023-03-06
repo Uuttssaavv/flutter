@@ -197,13 +197,12 @@ class TestRenderingFlutterBinding extends BindingBase with SchedulerBinding, Ser
 ///
 /// If `onErrors` is not null, it is set as [TestRenderingFlutterBinding.onError].
 void layout(
-  RenderBox box, {
+  RenderBox box, { // If you want to just repump the last box, call pumpFrame().
   BoxConstraints? constraints,
   Alignment alignment = Alignment.center,
   EnginePhase phase = EnginePhase.layout,
   VoidCallback? onErrors,
 }) {
-  assert(box != null); // If you want to just repump the last box, call pumpFrame().
   assert(box.parent == null); // We stick the box in another, so you can't reuse it easily, sorry.
 
   TestRenderingFlutterBinding.instance.renderView.child = null;
@@ -225,8 +224,6 @@ void layout(
 ///
 /// If `onErrors` is not null, it is set as [TestRenderingFlutterBinding.onError].
 void pumpFrame({ EnginePhase phase = EnginePhase.layout, VoidCallback? onErrors }) {
-  assert(TestRenderingFlutterBinding.instance != null);
-  assert(TestRenderingFlutterBinding.instance.renderView != null);
   assert(TestRenderingFlutterBinding.instance.renderView.child != null); // call layout() first!
 
   if (onErrors != null) {
@@ -365,12 +362,38 @@ class TestClipPaintingContext extends PaintingContext {
   Clip clipBehavior = Clip.none;
 }
 
-void expectOverflowedErrors() {
-  final FlutterErrorDetails errorDetails = TestRenderingFlutterBinding.instance.takeFlutterErrorDetails()!;
-  final bool overflowed = errorDetails.toString().contains('overflowed');
-  if (!overflowed) {
-    FlutterError.reportError(errorDetails);
+class TestPushLayerPaintingContext extends PaintingContext {
+  TestPushLayerPaintingContext() : super(ContainerLayer(), Rect.zero);
+
+  final List<ContainerLayer> pushedLayers = <ContainerLayer>[];
+
+  @override
+  void pushLayer(
+    ContainerLayer childLayer,
+    PaintingContextCallback painter,
+    Offset offset, {
+    Rect? childPaintBounds
+  }) {
+    pushedLayers.add(childLayer);
+    super.pushLayer(childLayer, painter, offset, childPaintBounds: childPaintBounds);
   }
+}
+
+// Absorbs errors that don't have "overflowed" in their error details.
+void absorbOverflowedErrors() {
+  final Iterable<FlutterErrorDetails> errorDetails = TestRenderingFlutterBinding.instance.takeAllFlutterErrorDetails();
+  final Iterable<FlutterErrorDetails> filtered = errorDetails.where((FlutterErrorDetails details) {
+    return !details.toString().contains('overflowed');
+  });
+  if (filtered.isNotEmpty) {
+    filtered.forEach(FlutterError.reportError);
+  }
+}
+
+// Reports any FlutterErrors.
+void expectNoFlutterErrors() {
+  final Iterable<FlutterErrorDetails> errorDetails = TestRenderingFlutterBinding.instance.takeAllFlutterErrorDetails();
+  errorDetails.forEach(FlutterError.reportError);
 }
 
 RenderConstrainedBox get box200x200 =>

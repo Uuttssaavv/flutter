@@ -24,6 +24,7 @@ const String kListViewsMethod = '_flutter.listViews';
 const String kScreenshotSkpMethod = '_flutter.screenshotSkp';
 const String kScreenshotMethod = '_flutter.screenshot';
 const String kRenderFrameWithRasterStatsMethod = '_flutter.renderFrameWithRasterStats';
+const String kReloadAssetFonts = '_flutter.reloadAssetFonts';
 
 /// The error response code from an unrecoverable compilation failure.
 const int kIsolateReloadBarred = 1005;
@@ -72,7 +73,7 @@ abstract class RPCErrorCodes {
 /// The VM Service Protocol allows clients to register custom services that
 /// can be invoked by other clients through the service protocol itself.
 ///
-/// Clients like Observatory use external 'reloadSources' services,
+/// Clients like VmService use external 'reloadSources' services,
 /// when available, instead of the VM internal one. This allows these clients to
 /// invoke Flutter HotReload when connected to a Flutter Application started in
 /// hot mode.
@@ -186,7 +187,7 @@ Future<vm_service.VmService> setUpVmService(
   // Each service registration requires a request to the attached VM service. Since the
   // order of these requests does not matter, store each future in a list and await
   // all at the end of this method.
-  final List<Future<vm_service.Success>> registrationRequests = <Future<vm_service.Success>>[];
+  final List<Future<vm_service.Success?>> registrationRequests = <Future<vm_service.Success?>>[];
   if (reloadSources != null) {
     vmService.registerServiceCallback('reloadSources', (Map<String, Object?> params) async {
       final String isolateId = _validateRpcStringParam('reloadSources', params, 'isolateId');
@@ -284,14 +285,19 @@ Future<vm_service.VmService> setUpVmService(
   }
   if (printStructuredErrorLogMethod != null) {
     vmService.onExtensionEvent.listen(printStructuredErrorLogMethod);
-    // It is safe to ignore this error because we expect an error to be
-    // thrown if we're already subscribed.
     registrationRequests.add(vmService
       .streamListen(vm_service.EventStreams.kExtension)
-      // TODO(srawlins): Fix this static issue,
-      // https://github.com/flutter/flutter/issues/105750.
-      // ignore: body_might_complete_normally_catch_error
-      .catchError((Object? error) {}, test: (Object? error) => error is vm_service.RPCError)
+      .then<vm_service.Success?>(
+        (vm_service.Success success) => success,
+        // It is safe to ignore this error because we expect an error to be
+        // thrown if we're already subscribed.
+        onError: (Object error, StackTrace stackTrace) {
+          if (error is vm_service.RPCError) {
+            return null;
+          }
+          return Future<vm_service.Success?>.error(error, stackTrace);
+        },
+      ),
     );
   }
 
@@ -492,7 +498,7 @@ class FlutterVmService {
   ///
   /// This method will only return data if `--cache-sksl` was provided as a
   /// flutter run argument, and only then on physical devices.
-  Future<Map<String, Object>?> getSkSLs({
+  Future<Map<String, Object?>?> getSkSLs({
     required String viewId,
   }) async {
     final vm_service.Response? response = await callMethodWrapper(
@@ -504,7 +510,7 @@ class FlutterVmService {
     if (response == null) {
       return null;
     }
-    return response.json?['SkSLs'] as Map<String, Object>?;
+    return response.json?['SkSLs'] as Map<String, Object?>?;
   }
 
   /// Flush all tasks on the UI thread for an attached Flutter view.
@@ -556,7 +562,7 @@ class FlutterVmService {
   /// for rasterization which is not reflective of how long the frame takes in
   /// production. This is primarily intended to be used to identify the layers
   /// that result in the most raster perf degradation.
-  Future<Map<String, Object>?> renderFrameWithRasterStats({
+  Future<Map<String, Object?>?> renderFrameWithRasterStats({
     required String? viewId,
     required String? uiIsolateId,
   }) async {
@@ -567,7 +573,7 @@ class FlutterVmService {
         'viewId': viewId,
       },
     );
-    return response?.json as Map<String, Object>?;
+    return response?.json;
   }
 
   Future<String> flutterDebugDumpApp({
@@ -740,6 +746,18 @@ class FlutterVmService {
     );
   }
 
+  Future<Map<String, Object?>?> flutterEvictScene(String assetPath, {
+   required String isolateId,
+  }) {
+    return invokeFlutterExtensionRpcRaw(
+      'ext.ui.window.reinitializeScene',
+      isolateId: isolateId,
+      args: <String, Object?>{
+        'assetKey': assetPath,
+      },
+    );
+  }
+
 
   /// Exit the application by calling [exit] from `dart:io`.
   ///
@@ -880,6 +898,20 @@ class FlutterVmService {
     }
   }
 
+  /// Tell the provided flutter view that the font manifest has been updated
+  /// and asset fonts should be reloaded.
+  Future<void> reloadAssetFonts({
+    required String isolateId,
+    required String viewId,
+  }) async {
+    await callMethodWrapper(
+      kReloadAssetFonts,
+      isolateId: isolateId, args: <String, Object?>{
+        'viewId': viewId,
+      },
+    );
+  }
+
   /// Waits for a signal from the VM service that [extensionName] is registered.
   ///
   /// Looks at the list of loaded extensions for first Flutter view, as well as
@@ -946,14 +978,16 @@ class FlutterVmService {
   /// been collected.
   Future<vm_service.Isolate?> getIsolateOrNull(String isolateId) async {
     return service.getIsolate(isolateId)
-      // The .then() call is required to cast from Future<Isolate> to Future<Isolate?>
-      .then<vm_service.Isolate?>((vm_service.Isolate isolate) => isolate)
-      .catchError((Object? error, StackTrace stackTrace) {
-        return null;
-      }, test: (Object? error) {
-        return (error is vm_service.SentinelException) ||
-          (error is vm_service.RPCError && error.code == RPCErrorCodes.kServiceDisappeared);
-      });
+      .then<vm_service.Isolate?>(
+        (vm_service.Isolate isolate) => isolate,
+        onError: (Object? error, StackTrace stackTrace) {
+          if (error is vm_service.SentinelException ||
+            error == null ||
+            (error is vm_service.RPCError && error.code == RPCErrorCodes.kServiceDisappeared)) {
+            return null;
+          }
+          return Future<vm_service.Isolate?>.error(error, stackTrace);
+        });
   }
 
   /// Create a new development file system on the device.
@@ -984,7 +1018,6 @@ class FlutterVmService {
 
   /// Set the VM timeline flags.
   Future<void> setTimelineFlags(List<String> recordedStreams) async {
-    assert(recordedStreams != null);
     await _checkedCallServiceExtension(
       'setVMTimelineFlags',
       args: <String, Object?>{

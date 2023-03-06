@@ -3,7 +3,7 @@
 // found in the LICENSE file.
 
 import 'dart:ui' as ui;
-import 'dart:ui' show WindowPadding;
+import 'dart:ui' show ViewPadding;
 
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/foundation.dart';
@@ -184,8 +184,8 @@ class MyStatefulWidgetState extends State<MyStatefulWidget> {
   Widget build(BuildContext context) => Text(widget.value);
 }
 
-class FakeWindowPadding implements WindowPadding {
-  const FakeWindowPadding({
+class FakeViewPadding implements ViewPadding {
+  const FakeViewPadding({
     this.left = 0.0,
     this.top = 0.0,
     this.right = 0.0,
@@ -205,7 +205,6 @@ class FakeWindowPadding implements WindowPadding {
 
 Future<void> main() async {
   final ui.Image testImage = await createTestImage();
-  assert(testImage != null);
 
   setUp(() {
     transitionFromUserGestures = false;
@@ -327,8 +326,7 @@ Future<void> main() async {
     await tester.pumpWidget(
       HeroControllerScope(
         controller: HeroController(),
-        child: Directionality(
-          textDirection: TextDirection.ltr,
+        child: TestDependencies(
           child: Navigator(
             key: key,
             initialRoute: 'navigator1',
@@ -382,8 +380,7 @@ Future<void> main() async {
     await tester.pumpWidget(
       HeroControllerScope(
         controller: HeroController(),
-        child: Directionality(
-          textDirection: TextDirection.ltr,
+        child: TestDependencies(
           child: Navigator(
             key: key,
             initialRoute: 'navigator1',
@@ -3100,7 +3097,7 @@ Future<void> main() async {
       final TestImageProvider imageProvider = TestImageProvider(testImage);
       final TestWidgetsFlutterBinding testBinding = tester.binding;
 
-      testBinding.window.paddingTestValue = const FakeWindowPadding(top: 50);
+      testBinding.window.paddingTestValue = const FakeViewPadding(top: 50);
 
       await tester.pumpWidget(
         MaterialApp(
@@ -3159,4 +3156,21 @@ Future<void> main() async {
       testBinding.window.clearAllTestValues();
     },
   );
+}
+
+class TestDependencies extends StatelessWidget {
+  const TestDependencies({required this.child, super.key});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return Directionality(
+      textDirection: TextDirection.ltr,
+      child: MediaQuery(
+        data: MediaQueryData.fromView(View.of(context)),
+        child: child,
+      ),
+    );
+  }
 }

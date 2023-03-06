@@ -138,7 +138,7 @@ class _FocusDemoState extends State<FocusDemo> {
         onKey: _handleKeyPress,
         autofocus: true,
         child: DefaultTextStyle(
-          style: textTheme.headline4!,
+          style: textTheme.headlineMedium!,
           child: Scaffold(
             appBar: AppBar(
               title: const Text('Focus Demo'),
@@ -152,18 +152,18 @@ class _FocusDemoState extends State<FocusDemo> {
                 return Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: <Widget>[
-                    Row(
+                    const Row(
                       mainAxisAlignment: MainAxisAlignment.center,
-                      children: const <Widget>[
+                      children: <Widget>[
                         DemoButton(
                           name: 'One',
                           autofocus: true,
                         ),
                       ],
                     ),
-                    Row(
+                    const Row(
                       mainAxisAlignment: MainAxisAlignment.center,
-                      children: const <Widget>[
+                      children: <Widget>[
                         DemoButton(name: 'Two'),
                         DemoButton(
                           name: 'Three',
@@ -171,9 +171,9 @@ class _FocusDemoState extends State<FocusDemo> {
                         ),
                       ],
                     ),
-                    Row(
+                    const Row(
                       mainAxisAlignment: MainAxisAlignment.center,
-                      children: const <Widget>[
+                      children: <Widget>[
                         DemoButton(name: 'Four'),
                         DemoButton(name: 'Five'),
                         DemoButton(name: 'Six'),

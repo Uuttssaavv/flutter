@@ -39,10 +39,8 @@ class MaterialPageRoute<T> extends PageRoute<T> with MaterialRouteTransitionMixi
     super.settings,
     this.maintainState = true,
     super.fullscreenDialog,
-    super.preferRasterization = true,
-  }) : assert(builder != null),
-       assert(maintainState != null),
-       assert(fullscreenDialog != null) {
+    super.allowSnapshotting = true,
+  }) {
     assert(opaque);
   }
 
@@ -109,15 +107,6 @@ mixin MaterialRouteTransitionMixin<T> on PageRoute<T> {
     Animation<double> secondaryAnimation,
   ) {
     final Widget result = buildContent(context);
-    assert(() {
-      if (result == null) {
-        throw FlutterError(
-          'The builder for route "${settings.name}" returned null.\n'
-          'Route builders must never return null.',
-        );
-      }
-      return true;
-    }());
     return Semantics(
       scopesRoute: true,
       explicitChildNodes: true,
@@ -158,14 +147,12 @@ class MaterialPage<T> extends Page<T> {
     required this.child,
     this.maintainState = true,
     this.fullscreenDialog = false,
-    this.preferRasterization = true,
+    this.allowSnapshotting = true,
     super.key,
     super.name,
     super.arguments,
     super.restorationId,
-  }) : assert(child != null),
-       assert(maintainState != null),
-       assert(fullscreenDialog != null);
+  });
 
   /// The content to be shown in the [Route] created by this page.
   final Widget child;
@@ -176,12 +163,12 @@ class MaterialPage<T> extends Page<T> {
   /// {@macro flutter.widgets.PageRoute.fullscreenDialog}
   final bool fullscreenDialog;
 
-  /// {@macro flutter.widgets.TransitionRoute.preferRasterization}
-  final bool preferRasterization;
+  /// {@macro flutter.widgets.TransitionRoute.allowSnapshotting}
+  final bool allowSnapshotting;
 
   @override
   Route<T> createRoute(BuildContext context) {
-    return _PageBasedMaterialPageRoute<T>(page: this, preferRasterization: preferRasterization);
+    return _PageBasedMaterialPageRoute<T>(page: this, allowSnapshotting: allowSnapshotting);
   }
 }
 
@@ -192,9 +179,8 @@ class MaterialPage<T> extends Page<T> {
 class _PageBasedMaterialPageRoute<T> extends PageRoute<T> with MaterialRouteTransitionMixin<T> {
   _PageBasedMaterialPageRoute({
     required MaterialPage<T> page,
-    super.preferRasterization,
-  }) : assert(page != null),
-       super(settings: page) {
+    super.allowSnapshotting,
+  }) : super(settings: page) {
     assert(opaque);
   }
 

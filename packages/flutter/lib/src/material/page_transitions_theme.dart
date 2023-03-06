@@ -151,15 +151,15 @@ class _OpenUpwardsPageTransition extends StatelessWidget {
 class _ZoomPageTransition extends StatelessWidget {
   /// Creates a [_ZoomPageTransition].
   ///
-  /// The [animation] and [secondaryAnimation] argument are required and must
+  /// The [animation] and [secondaryAnimation] arguments are required and must
   /// not be null.
   const _ZoomPageTransition({
     required this.animation,
     required this.secondaryAnimation,
-    required this.preferRasterization,
+    required this.allowSnapshotting,
+    required this.allowEnterRouteSnapshotting,
     this.child,
-  }) : assert(animation != null),
-       assert(secondaryAnimation != null);
+  });
 
   // A curve sequence that is similar to the 'fastOutExtraSlowIn' curve used in
   // the native transition.
@@ -194,19 +194,33 @@ class _ZoomPageTransition extends StatelessWidget {
   ///    property when the [_ZoomPageTransition] is used as a page transition.
   final Animation<double> secondaryAnimation;
 
-  /// Whether the [RasterWidget] based-rasterized strategy for the zoom page transition
-  /// will be used.
+  /// Whether the [SnapshotWidget] will be used.
   ///
-  /// Notably, this improves performance by disabling animations on both the outgoing and
-  /// incoming route. This also implies that ink-splashes or similar animations will
-  /// not animate during the transition.
-  final bool preferRasterization;
+  /// When this value is true, performance is improved by disabling animations
+  /// on both the outgoing and incoming route. This also implies that ink-splashes
+  /// or similar animations will not animate during the transition.
+  ///
+  /// See also:
+  ///
+  ///  * [TransitionRoute.allowSnapshotting], which defines wether the route
+  ///    transition will prefer to animate a snapshot of the entering and exiting
+  ///    routes.
+  final bool allowSnapshotting;
 
   /// The widget below this widget in the tree.
   ///
   /// This widget will transition in and out as driven by [animation] and
   /// [secondaryAnimation].
   final Widget? child;
+
+  /// Whether to enable snapshotting on the entering route during the
+  /// transition animation.
+  ///
+  /// If not specified, defaults to true.
+  /// If false, the route snapshotting will not be applied to the route being
+  /// animating into, e.g. when transitioning from route A to route B, B will
+  /// not be snapshotted.
+  final bool allowEnterRouteSnapshotting;
 
   @override
   Widget build(BuildContext context) {
@@ -219,7 +233,7 @@ class _ZoomPageTransition extends StatelessWidget {
       ) {
         return _ZoomEnterTransition(
           animation: animation,
-          preferRasterization: preferRasterization,
+          allowSnapshotting: allowSnapshotting && allowEnterRouteSnapshotting,
           child: child,
         );
       },
@@ -230,7 +244,7 @@ class _ZoomPageTransition extends StatelessWidget {
       ) {
         return _ZoomExitTransition(
           animation: animation,
-          preferRasterization: preferRasterization,
+          allowSnapshotting: allowSnapshotting,
           reverse: true,
           child: child,
         );
@@ -244,7 +258,7 @@ class _ZoomPageTransition extends StatelessWidget {
         ) {
           return _ZoomEnterTransition(
             animation: animation,
-            preferRasterization: preferRasterization,
+            allowSnapshotting: allowSnapshotting && allowEnterRouteSnapshotting ,
             reverse: true,
             child: child,
           );
@@ -256,7 +270,7 @@ class _ZoomPageTransition extends StatelessWidget {
         ) {
           return _ZoomExitTransition(
             animation: animation,
-            preferRasterization: preferRasterization,
+            allowSnapshotting: allowSnapshotting,
             child: child,
           );
         },
@@ -270,14 +284,13 @@ class _ZoomEnterTransition extends StatefulWidget {
   const _ZoomEnterTransition({
     required this.animation,
     this.reverse = false,
-    required this.preferRasterization,
+    required this.allowSnapshotting,
     this.child,
-  }) : assert(animation != null),
-       assert(reverse != null);
+  });
 
   final Animation<double> animation;
   final Widget? child;
-  final bool preferRasterization;
+  final bool allowSnapshotting;
   final bool reverse;
 
   @override
@@ -285,10 +298,13 @@ class _ZoomEnterTransition extends StatefulWidget {
 }
 
 class _ZoomEnterTransitionState extends State<_ZoomEnterTransition> with _ZoomTransitionBase {
-  // TODO(jonahwilliams): https://github.com/flutter/flutter/issues/106689
-  bool get allowRasterization => !kIsWeb && widget.preferRasterization;
+  // See SnapshotWidget doc comment, this is disabled on web because the HTML backend doesn't
+  // support this functionality and the canvaskit backend uses a single thread for UI and raster
+  // work which diminishes the impact of this performance improvement.
+  @override
+  bool get useSnapshot => !kIsWeb && widget.allowSnapshotting;
 
-  late _ZoomEnterTransitionDelegate delegate;
+  late _ZoomEnterTransitionPainter delegate;
 
   static final Animatable<double> _fadeInTransition = Tween<double>(
     begin: 0.0,
@@ -327,7 +343,7 @@ class _ZoomEnterTransitionState extends State<_ZoomEnterTransition> with _ZoomTr
   @override
   void initState() {
     _updateAnimations();
-    delegate = _ZoomEnterTransitionDelegate(
+    delegate = _ZoomEnterTransitionPainter(
       reverse: widget.reverse,
       fade: fadeTransition,
       scale: scaleTransition,
@@ -343,7 +359,7 @@ class _ZoomEnterTransitionState extends State<_ZoomEnterTransition> with _ZoomTr
       oldWidget.animation.removeStatusListener(onAnimationStatusChange);
       _updateAnimations();
       delegate.dispose();
-      delegate = _ZoomEnterTransitionDelegate(
+      delegate = _ZoomEnterTransitionPainter(
         reverse: widget.reverse,
         fade: fadeTransition,
         scale: scaleTransition,
@@ -363,11 +379,11 @@ class _ZoomEnterTransitionState extends State<_ZoomEnterTransition> with _ZoomTr
 
   @override
   Widget build(BuildContext context) {
-    return RasterWidget(
-      delegate: delegate,
+    return SnapshotWidget(
+      painter: delegate,
       controller: controller,
-      fallback: delegate,
-      mode: allowRasterization ? RasterizeMode.enabled : RasterizeMode.fallback,
+      mode: SnapshotMode.permissive,
+      autoresize: true,
       child: widget.child,
     );
   }
@@ -377,13 +393,12 @@ class _ZoomExitTransition extends StatefulWidget {
   const _ZoomExitTransition({
     required this.animation,
     this.reverse = false,
-    required this.preferRasterization,
+    required this.allowSnapshotting,
     this.child,
-  }) : assert(animation != null),
-       assert(reverse != null);
+  });
 
   final Animation<double> animation;
-  final bool preferRasterization;
+  final bool allowSnapshotting;
   final bool reverse;
   final Widget? child;
 
@@ -392,10 +407,13 @@ class _ZoomExitTransition extends StatefulWidget {
 }
 
 class _ZoomExitTransitionState extends State<_ZoomExitTransition> with _ZoomTransitionBase {
-  late _ZoomExitTransitionDelegate delegate;
+  late _ZoomExitTransitionPainter delegate;
 
-  // TODO(jonahwilliams): https://github.com/flutter/flutter/issues/106689
-  bool get allowRasterization => !kIsWeb && widget.preferRasterization;
+  // See SnapshotWidget doc comment, this is disabled on web because the HTML backend doesn't
+  // support this functionality and the canvaskit backend uses a single thread for UI and raster
+  // work which diminishes the impact of this performance improvement.
+  @override
+  bool get useSnapshot => !kIsWeb && widget.allowSnapshotting;
 
   static final Animatable<double> _fadeOutTransition = Tween<double>(
     begin: 1.0,
@@ -428,10 +446,11 @@ class _ZoomExitTransitionState extends State<_ZoomExitTransition> with _ZoomTran
   @override
   void initState() {
     _updateAnimations();
-    delegate = _ZoomExitTransitionDelegate(
+    delegate = _ZoomExitTransitionPainter(
       reverse: widget.reverse,
       fade: fadeTransition,
       scale: scaleTransition,
+      animation: widget.animation,
     );
     super.initState();
   }
@@ -443,10 +462,11 @@ class _ZoomExitTransitionState extends State<_ZoomExitTransition> with _ZoomTran
       oldWidget.animation.removeStatusListener(onAnimationStatusChange);
       _updateAnimations();
       delegate.dispose();
-      delegate = _ZoomExitTransitionDelegate(
+      delegate = _ZoomExitTransitionPainter(
         reverse: widget.reverse,
         fade: fadeTransition,
         scale: scaleTransition,
+        animation: widget.animation,
       );
     }
     super.didUpdateWidget(oldWidget);
@@ -462,11 +482,11 @@ class _ZoomExitTransitionState extends State<_ZoomExitTransition> with _ZoomTran
 
   @override
   Widget build(BuildContext context) {
-    return RasterWidget(
-      delegate: delegate,
+    return SnapshotWidget(
+      painter: delegate,
       controller: controller,
-      fallback: delegate,
-      mode: allowRasterization ? RasterizeMode.enabled : RasterizeMode.fallback,
+      mode: SnapshotMode.permissive,
+      autoresize: true,
       child: widget.child,
     );
   }
@@ -589,7 +609,18 @@ class OpenUpwardsPageTransitionsBuilder extends PageTransitionsBuilder {
 class ZoomPageTransitionsBuilder extends PageTransitionsBuilder {
   /// Constructs a page transition animation that matches the transition used on
   /// Android Q.
-  const ZoomPageTransitionsBuilder();
+  const ZoomPageTransitionsBuilder({
+    this.allowEnterRouteSnapshotting = true,
+  });
+
+  /// Whether to enable snapshotting on the entering route during the
+  /// transition animation.
+  ///
+  /// If not specified, defaults to true.
+  /// If false, the route snapshotting will not be applied to the route being
+  /// animating into, e.g. when transitioning from route A to route B, B will
+  /// not be snapshotted.
+  final bool allowEnterRouteSnapshotting;
 
   @override
   Widget buildTransitions<T>(
@@ -602,7 +633,8 @@ class ZoomPageTransitionsBuilder extends PageTransitionsBuilder {
     return _ZoomPageTransition(
       animation: animation,
       secondaryAnimation: secondaryAnimation,
-      preferRasterization: false, // TODO(jonahwilliams): https://github.com/flutter/flutter/issues/108389
+      allowSnapshotting: route?.allowSnapshotting ?? true,
+      allowEnterRouteSnapshotting: allowEnterRouteSnapshotting,
       child: child,
     );
   }
@@ -643,7 +675,13 @@ class CupertinoPageTransitionsBuilder extends PageTransitionsBuilder {
 /// and delegates to [buildTransitions].
 ///
 /// If a builder with a matching platform is not found, then the
-/// [FadeUpwardsPageTransitionsBuilder] is used.
+/// [ZoomPageTransitionsBuilder] is used.
+///
+/// {@tool dartpad}
+/// This example shows a [MaterialApp] that defines a custom [PageTransitionsTheme].
+///
+/// ** See code in examples/api/lib/material/page_transitions_theme/page_transitions_theme.0.dart **
+/// {@end-tool}
 ///
 /// See also:
 ///
@@ -676,8 +714,9 @@ class PageTransitionsTheme with Diagnosticable {
   Map<TargetPlatform, PageTransitionsBuilder> get builders => _builders;
   final Map<TargetPlatform, PageTransitionsBuilder> _builders;
 
-  /// Delegates to the builder for the current [ThemeData.platform]
-  /// or [ZoomPageTransitionsBuilder].
+  /// Delegates to the builder for the current [ThemeData.platform].
+  /// If a builder for the current platform is not found, then the
+  /// [ZoomPageTransitionsBuilder] is used.
   ///
   /// [MaterialPageRoute.buildTransitions] delegates to this method.
   Widget buildTransitions<T>(
@@ -698,8 +737,8 @@ class PageTransitionsTheme with Diagnosticable {
     return matchingBuilder.buildTransitions<T>(route, context, animation, secondaryAnimation, child);
   }
 
-  // Just used to the builders Map to a list with one PageTransitionsBuilder per platform
-  // for the operator == overload.
+  // Map the builders to a list with one PageTransitionsBuilder per platform for
+  // the operator == overload.
   List<PageTransitionsBuilder?> _all(Map<TargetPlatform, PageTransitionsBuilder> builders) {
     return TargetPlatform.values.map((TargetPlatform platform) => builders[platform]).toList();
   }
@@ -765,12 +804,14 @@ void _updateScaledTransform(Matrix4 transform, double scale, Size size) {
 }
 
 mixin _ZoomTransitionBase {
+  bool get useSnapshot;
+
   // Don't rasterize if:
   // 1. Rasterization is disabled by the platform.
   // 2. The animation is paused/stopped.
   // 3. The values of the scale/fade transition do not
   //    benefit from rasterization.
-  final RasterWidgetController controller = RasterWidgetController();
+  final SnapshotController controller = SnapshotController();
 
   late Animation<double> fadeTransition;
   late Animation<double> scaleTransition;
@@ -779,9 +820,9 @@ mixin _ZoomTransitionBase {
     if ((scaleTransition.value == 1.0) &&
         (fadeTransition.value == 0.0 ||
          fadeTransition.value == 1.0)) {
-        controller.rasterize = false;
+        controller.allowSnapshotting = false;
       } else {
-        controller.rasterize = true;
+        controller.allowSnapshotting = useSnapshot;
       }
   }
 
@@ -789,26 +830,31 @@ mixin _ZoomTransitionBase {
     switch (status) {
       case AnimationStatus.dismissed:
       case AnimationStatus.completed:
-        controller.rasterize = false;
+        controller.allowSnapshotting = false;
         break;
       case AnimationStatus.forward:
       case AnimationStatus.reverse:
-        controller.rasterize = true;
+        controller.allowSnapshotting = useSnapshot;
         break;
     }
   }
 }
 
-class _ZoomEnterTransitionDelegate extends RasterWidgetDelegate implements RasterWidgetFallbackDelegate {
-  _ZoomEnterTransitionDelegate({
+class _ZoomEnterTransitionPainter extends SnapshotPainter {
+  _ZoomEnterTransitionPainter({
     required this.reverse,
     required this.scale,
     required this.fade,
     required this.animation,
   }) {
     animation.addListener(notifyListeners);
+    animation.addStatusListener(_onStatusChange);
     scale.addListener(notifyListeners);
     fade.addListener(notifyListeners);
+  }
+
+  void _onStatusChange(_) {
+    notifyListeners();
   }
 
   final bool reverse;
@@ -845,7 +891,15 @@ class _ZoomEnterTransitionDelegate extends RasterWidgetDelegate implements Raste
   }
 
   @override
-  void paintFallback(PaintingContext context, ui.Offset offset, Size size, PaintingContextCallback painter) {
+  void paint(PaintingContext context, ui.Offset offset, Size size, PaintingContextCallback painter) {
+    switch (animation.status) {
+      case AnimationStatus.completed:
+      case AnimationStatus.dismissed:
+        return painter(context, offset);
+      case AnimationStatus.forward:
+      case AnimationStatus.reverse:
+    }
+
     _drawScrim(context, offset, size);
     _updateScaledTransform(_transform, scale.value, size);
     _transformHandler.layer = context.pushTransform(true, offset, _transform, (PaintingContext context, Offset offset) {
@@ -854,7 +908,7 @@ class _ZoomEnterTransitionDelegate extends RasterWidgetDelegate implements Raste
   }
 
   @override
-  void paint(PaintingContext context, Offset offset, Size size, ui.Image image, double pixelRatio) {
+  void paintSnapshot(PaintingContext context, Offset offset, Size size, ui.Image image, Size sourceSize, double pixelRatio) {
     _drawScrim(context, offset, size);
     _drawImageScaledAndCentered(context, image, scale.value, fade.value, pixelRatio);
   }
@@ -862,6 +916,7 @@ class _ZoomEnterTransitionDelegate extends RasterWidgetDelegate implements Raste
   @override
   void dispose() {
     animation.removeListener(notifyListeners);
+    animation.removeStatusListener(_onStatusChange);
     scale.removeListener(notifyListeners);
     fade.removeListener(notifyListeners);
     _opacityHandle.layer = null;
@@ -870,7 +925,7 @@ class _ZoomEnterTransitionDelegate extends RasterWidgetDelegate implements Raste
   }
 
   @override
-  bool shouldRepaint(covariant _ZoomEnterTransitionDelegate oldDelegate) {
+  bool shouldRepaint(covariant _ZoomEnterTransitionPainter oldDelegate) {
     return oldDelegate.reverse != reverse
       || oldDelegate.animation.value != animation.value
       || oldDelegate.scale.value != scale.value
@@ -878,30 +933,46 @@ class _ZoomEnterTransitionDelegate extends RasterWidgetDelegate implements Raste
   }
 }
 
-class _ZoomExitTransitionDelegate extends RasterWidgetDelegate implements RasterWidgetFallbackDelegate {
-  _ZoomExitTransitionDelegate({
+class _ZoomExitTransitionPainter extends SnapshotPainter {
+  _ZoomExitTransitionPainter({
     required this.reverse,
     required this.scale,
     required this.fade,
+    required this.animation,
   }) {
     scale.addListener(notifyListeners);
     fade.addListener(notifyListeners);
+    animation.addStatusListener(_onStatusChange);
+  }
+
+  void _onStatusChange(_) {
+    notifyListeners();
   }
 
   final bool reverse;
   final Animation<double> scale;
   final Animation<double> fade;
+  final Animation<double> animation;
   final Matrix4 _transform = Matrix4.zero();
   final LayerHandle<OpacityLayer> _opacityHandle = LayerHandle<OpacityLayer>();
   final LayerHandle<TransformLayer> _transformHandler = LayerHandle<TransformLayer>();
 
   @override
-  void paint(PaintingContext context, Offset offset, Size size, ui.Image image, double pixelRatio) {
+  void paintSnapshot(PaintingContext context, Offset offset, Size size, ui.Image image, Size sourceSize, double pixelRatio) {
     _drawImageScaledAndCentered(context, image, scale.value, fade.value, pixelRatio);
   }
 
   @override
-  void paintFallback(PaintingContext context, ui.Offset offset, Size size, PaintingContextCallback painter) {
+  void paint(PaintingContext context, ui.Offset offset, Size size, PaintingContextCallback painter) {
+    switch (animation.status) {
+      case AnimationStatus.completed:
+      case AnimationStatus.dismissed:
+        return painter(context, offset);
+      case AnimationStatus.forward:
+      case AnimationStatus.reverse:
+        break;
+    }
+
     _updateScaledTransform(_transform, scale.value, size);
     _transformHandler.layer = context.pushTransform(true, offset, _transform, (PaintingContext context, Offset offset) {
       _opacityHandle.layer = context.pushOpacity(offset, (fade.value * 255).round(), painter, oldLayer: _opacityHandle.layer);
@@ -909,8 +980,10 @@ class _ZoomExitTransitionDelegate extends RasterWidgetDelegate implements Raster
   }
 
   @override
-  bool shouldRepaint(covariant _ZoomExitTransitionDelegate oldDelegate) {
-    return oldDelegate.reverse != reverse || oldDelegate.fade.value != fade.value || oldDelegate.scale.value != scale.value;
+  bool shouldRepaint(covariant _ZoomExitTransitionPainter oldDelegate) {
+    return oldDelegate.reverse != reverse
+      || oldDelegate.fade.value != fade.value
+      || oldDelegate.scale.value != scale.value;
   }
 
   @override
@@ -919,6 +992,7 @@ class _ZoomExitTransitionDelegate extends RasterWidgetDelegate implements Raster
     _transformHandler.layer = null;
     scale.removeListener(notifyListeners);
     fade.removeListener(notifyListeners);
+    animation.removeStatusListener(_onStatusChange);
     super.dispose();
   }
 }

@@ -262,7 +262,7 @@ class _RadioItem<T> extends StatelessWidget {
                   },
                   child: Text(
                     value.title!,
-                    style: theme.textTheme.subtitle1,
+                    style: theme.textTheme.titleMedium,
                   ),
                 ),
               ),
@@ -332,7 +332,7 @@ class _Heading extends StatelessWidget {
       alignment: AlignmentDirectional.centerStart,
       child: Text(
         text,
-        style: theme.textTheme.bodyText1,
+        style: theme.textTheme.bodyLarge,
       ),
     );
   }
@@ -402,9 +402,9 @@ class _DemoDrawer extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Drawer(
+    return const Drawer(
       child: Column(
-        children: const <Widget>[
+        children: <Widget>[
           ListTile(
             leading: Icon(Icons.search),
             title: Text('Search'),

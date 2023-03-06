@@ -5,8 +5,9 @@
 // This file is run as part of a reduced test set in CI on Mac and Windows
 // machines.
 @Tags(<String>['reduced-test-set'])
-
 @TestOn('!chrome')
+library;
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
@@ -68,7 +69,7 @@ void main() {
           key: editableTextKey,
           controller: TextEditingController(),
           focusNode: FocusNode(),
-          style: Typography.material2018().black.subtitle1!,
+          style: Typography.material2018().black.titleMedium!,
           cursorColor: Colors.blue,
           selectionControls: materialTextSelectionControls,
           keyboardType: TextInputType.text,
@@ -123,7 +124,7 @@ void main() {
           key: editableTextKey,
           controller: TextEditingController(),
           focusNode: FocusNode(),
-          style: Typography.material2018().black.subtitle1!,
+          style: Typography.material2018().black.titleMedium!,
           cursorColor: Colors.blue,
           selectionControls: materialTextSelectionControls,
           keyboardType: TextInputType.text,
@@ -962,7 +963,7 @@ void main() {
               key: editableTextKey,
               controller: TextEditingController(),
               focusNode: FocusNode(),
-              style: Typography.material2018(platform: TargetPlatform.iOS).black.subtitle1!,
+              style: Typography.material2018(platform: TargetPlatform.iOS).black.titleMedium!,
               cursorColor: Colors.blue,
               selectionControls: materialTextSelectionControls,
               keyboardType: TextInputType.text,
@@ -1023,7 +1024,7 @@ void main() {
               key: editableTextKey,
               controller: TextEditingController(),
               focusNode: FocusNode(),
-              style: Typography.material2018(platform: TargetPlatform.iOS).black.subtitle1!,
+              style: Typography.material2018(platform: TargetPlatform.iOS).black.titleMedium!,
               cursorColor: Colors.blue,
               selectionControls: materialTextSelectionControls,
               keyboardType: TextInputType.text,
