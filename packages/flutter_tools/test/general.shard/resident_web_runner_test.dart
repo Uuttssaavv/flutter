@@ -39,6 +39,7 @@ import 'package:webkit_inspection_protocol/webkit_inspection_protocol.dart';
 
 import '../src/common.dart';
 import '../src/context.dart';
+import '../src/fake_process_manager.dart';
 import '../src/fake_vm_services.dart';
 
 const List<VmServiceExpectation> kAttachLogExpectations =
@@ -63,16 +64,16 @@ const List<VmServiceExpectation> kAttachIsolateExpectations =
     'streamId': 'Isolate',
   }),
   FakeVmServiceRequest(method: 'registerService', args: <String, Object>{
-    'service': 'reloadSources',
-    'alias': 'Flutter Tools',
+    'service': kReloadSourcesServiceName,
+    'alias': kFlutterToolAlias,
   }),
   FakeVmServiceRequest(method: 'registerService', args: <String, Object>{
-    'service': 'flutterVersion',
-    'alias': 'Flutter Tools',
+    'service': kFlutterVersionServiceName,
+    'alias': kFlutterToolAlias,
   }),
   FakeVmServiceRequest(method: 'registerService', args: <String, Object>{
-    'service': 'flutterMemoryInfo',
-    'alias': 'Flutter Tools',
+    'service': kFlutterMemoryInfoServiceName,
+    'alias': kFlutterToolAlias,
   }),
   FakeVmServiceRequest(
     method: 'streamListen',
@@ -607,7 +608,7 @@ void main() {
     fakeVmServiceHost = FakeVmServiceHost(requests: <VmServiceExpectation>[
       ...kAttachExpectations,
       const FakeVmServiceRequest(
-          method: 'hotRestart',
+          method: kHotRestartServiceName,
           jsonResponse: <String, Object>{
             'type': 'Success',
           }),
@@ -620,8 +621,9 @@ void main() {
     ]);
     setupMocks();
     final TestChromiumLauncher chromiumLauncher = TestChromiumLauncher();
+    final FakeProcess process = FakeProcess();
     final Chromium chrome =
-        Chromium(1, chromeConnection, chromiumLauncher: chromiumLauncher);
+        Chromium(1, chromeConnection, chromiumLauncher: chromiumLauncher, process: process, logger: logger);
     chromiumLauncher.setInstance(chrome);
 
     flutterDevice.device = GoogleChromeDevice(
@@ -680,15 +682,16 @@ void main() {
     fakeVmServiceHost = FakeVmServiceHost(requests: <VmServiceExpectation>[
       ...kAttachExpectations,
       const FakeVmServiceRequest(
-          method: 'hotRestart',
+          method: kHotRestartServiceName,
           jsonResponse: <String, Object>{
             'type': 'Success',
           }),
     ]);
     setupMocks();
     final TestChromiumLauncher chromiumLauncher = TestChromiumLauncher();
+    final FakeProcess process = FakeProcess();
     final Chromium chrome =
-        Chromium(1, chromeConnection, chromiumLauncher: chromiumLauncher);
+        Chromium(1, chromeConnection, chromiumLauncher: chromiumLauncher, process: process, logger: logger);
     chromiumLauncher.setInstance(chrome);
 
     flutterDevice.device = GoogleChromeDevice(
@@ -714,8 +717,8 @@ void main() {
     final String entrypointContents =
         fileSystem.file(webDevFS.mainUri).readAsStringSync();
     expect(entrypointContents, contains('// Flutter web bootstrap script'));
-    expect(entrypointContents, contains("import 'dart:ui' as ui;"));
-    expect(entrypointContents, contains('await ui.webOnlyWarmupEngine('));
+    expect(entrypointContents, contains("import 'dart:ui_web' as ui_web;"));
+    expect(entrypointContents, contains('await ui_web.bootstrapEngine('));
 
     expect(logger.statusText, contains('Restarted application in'));
     expect(result.code, 0);
@@ -879,7 +882,7 @@ void main() {
     fakeVmServiceHost = FakeVmServiceHost(requests: <VmServiceExpectation>[
       ...kAttachExpectations,
       const FakeVmServiceRequest(
-        method: 'hotRestart',
+        method: kHotRestartServiceName,
         jsonResponse: <String, Object>{
           'type': 'Failed',
         },
@@ -906,7 +909,7 @@ void main() {
     fakeVmServiceHost = FakeVmServiceHost(requests: <VmServiceExpectation>[
       ...kAttachExpectations,
       const FakeVmServiceRequest(
-        method: 'hotRestart',
+        method: kHotRestartServiceName,
         // Failed response,
         errorCode: RPCErrorCodes.kInternalError,
       ),
@@ -1025,8 +1028,9 @@ void main() {
     setupMocks();
     final FakeChromeConnection chromeConnection = FakeChromeConnection();
     final TestChromiumLauncher chromiumLauncher = TestChromiumLauncher();
+    final FakeProcess process = FakeProcess();
     final Chromium chrome =
-        Chromium(1, chromeConnection, chromiumLauncher: chromiumLauncher);
+        Chromium(1, chromeConnection, chromiumLauncher: chromiumLauncher, process: process, logger: logger);
     chromiumLauncher.setInstance(chrome);
 
     flutterDevice.device = GoogleChromeDevice(
@@ -1307,6 +1311,23 @@ flutter:
     FileSystem: () => fileSystem,
     ProcessManager: () => processManager,
   });
+
+  testUsingContext('throws when port is an integer outside the valid TCP range', () async {
+    final BufferLogger logger = BufferLogger.test();
+
+    DebuggingOptions debuggingOptions = DebuggingOptions.enabled(BuildInfo.debug, port: '65536');
+    ResidentRunner residentWebRunner =
+        setUpResidentRunner(flutterDevice, logger: logger, debuggingOptions: debuggingOptions);
+    await expectToolExitLater(residentWebRunner.run(), matches('Invalid port: 65536.*'));
+
+    debuggingOptions = DebuggingOptions.enabled(BuildInfo.debug, port: '-1');
+    residentWebRunner =
+      setUpResidentRunner(flutterDevice, logger: logger, debuggingOptions: debuggingOptions);
+    await expectToolExitLater(residentWebRunner.run(), matches('Invalid port: -1.*'));
+  }, overrides: <Type, Generator>{
+    FileSystem: () => fileSystem,
+    ProcessManager: () => processManager,
+  });
 }
 
 ResidentRunner setUpResidentRunner(
@@ -1427,6 +1448,7 @@ class FakeResidentCompiler extends Fake implements ResidentCompiler {
     bool suppressErrors = false,
     bool checkDartPluginRegistry = false,
     File? dartPluginRegistrant,
+    Uri? nativeAssetsYaml,
   }) async {
     return const CompilerOutput('foo.dill', 0, <Uri>[]);
   }
@@ -1637,6 +1659,7 @@ class FakeFlutterDevice extends Fake implements FlutterDevice {
     Restart? restart,
     CompileExpression? compileExpression,
     GetSkSLMethod? getSkSLMethod,
+    FlutterProject? flutterProject,
     PrintStructuredErrorLogMethod? printStructuredErrorLogMethod,
     int? hostVmServicePort,
     int? ddsPort,
@@ -1677,7 +1700,10 @@ class FakeShaderCompiler implements DevelopmentShaderCompiler {
   const FakeShaderCompiler();
 
   @override
-  void configureCompiler(TargetPlatform? platform, { required bool enableImpeller }) { }
+  void configureCompiler(
+    TargetPlatform? platform, {
+    required ImpellerStatus impellerStatus,
+  }) { }
 
   @override
   Future<DevFSContent> recompileShader(DevFSContent inputShader) {

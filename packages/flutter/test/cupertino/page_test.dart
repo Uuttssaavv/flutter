@@ -4,9 +4,10 @@
 
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:leak_tracker_flutter_testing/leak_tracker_flutter_testing.dart';
 
 void main() {
-  testWidgets('test iOS page transition (LTR)', (WidgetTester tester) async {
+  testWidgetsWithLeakTracking('test iOS page transition (LTR)', (WidgetTester tester) async {
     await tester.pumpWidget(
       CupertinoApp(
         onGenerateRoute: (RouteSettings settings) {
@@ -41,7 +42,7 @@ void main() {
     expect(widget2TopLeft.dx, greaterThan(widget1InitialTopLeft.dx));
 
     // Will need to be changed if the animation curve or duration changes.
-    expect(widget1TransientTopLeft.dx, moreOrLessEquals(130, epsilon: 1.0));
+    expect(widget1TransientTopLeft.dx, moreOrLessEquals(158, epsilon: 1.0));
 
     await tester.pumpAndSettle();
 
@@ -66,7 +67,7 @@ void main() {
     expect(widget2TopLeft.dx, greaterThan(widget1InitialTopLeft.dx));
 
     // Will need to be changed if the animation curve or duration changes.
-    expect(widget1TransientTopLeft.dx, moreOrLessEquals(249, epsilon: 1.0));
+    expect(widget1TransientTopLeft.dx, moreOrLessEquals(220, epsilon: 1.0));
 
     await tester.pumpAndSettle();
 
@@ -79,7 +80,7 @@ void main() {
     expect(widget1InitialTopLeft, equals(widget1TransientTopLeft));
   });
 
-  testWidgets('test iOS page transition (RTL)', (WidgetTester tester) async {
+  testWidgetsWithLeakTracking('test iOS page transition (RTL)', (WidgetTester tester) async {
     await tester.pumpWidget(
       CupertinoApp(
         localizationsDelegates: const <LocalizationsDelegate<dynamic>>[
@@ -150,7 +151,7 @@ void main() {
     expect(widget1InitialTopLeft, equals(widget1TransientTopLeft));
   });
 
-  testWidgets('test iOS fullscreen dialog transition', (WidgetTester tester) async {
+  testWidgetsWithLeakTracking('test iOS fullscreen dialog transition', (WidgetTester tester) async {
     await tester.pumpWidget(
       const CupertinoApp(
         home: Center(child: Text('Page 1')),
@@ -210,7 +211,7 @@ void main() {
     expect(widget1InitialTopLeft, equals(widget1TransientTopLeft));
   });
 
-  testWidgets('test only edge swipes work (LTR)', (WidgetTester tester) async {
+  testWidgetsWithLeakTracking('test only edge swipes work (LTR)', (WidgetTester tester) async {
     await tester.pumpWidget(
       CupertinoApp(
         onGenerateRoute: (RouteSettings settings) {
@@ -271,7 +272,7 @@ void main() {
     expect(find.text('Page 2'), isOnstage);
   });
 
-  testWidgets('test edge swipes work with media query padding (LTR)', (WidgetTester tester) async {
+  testWidgetsWithLeakTracking('test edge swipes work with media query padding (LTR)', (WidgetTester tester) async {
     await tester.pumpWidget(
       CupertinoApp(
         builder: (BuildContext context, Widget? navigator) {
@@ -315,7 +316,7 @@ void main() {
     expect(find.text('Page 2'), isOnstage);
   });
 
-  testWidgets('test edge swipes work with media query padding (RLT)', (WidgetTester tester) async {
+  testWidgetsWithLeakTracking('test edge swipes work with media query padding (RLT)', (WidgetTester tester) async {
     await tester.pumpWidget(
       CupertinoApp(
         builder: (BuildContext context, Widget? navigator) {
@@ -363,7 +364,7 @@ void main() {
     expect(find.text('Page 2'), isOnstage);
   });
 
-  testWidgets('test only edge swipes work (RTL)', (WidgetTester tester) async {
+  testWidgetsWithLeakTracking('test only edge swipes work (RTL)', (WidgetTester tester) async {
     await tester.pumpWidget(
       CupertinoApp(
         localizationsDelegates: const <LocalizationsDelegate<dynamic>>[
@@ -428,7 +429,7 @@ void main() {
     expect(find.text('Page 2'), isOnstage);
   });
 
-  testWidgets('test edge swipe then drop back at starting point works', (WidgetTester tester) async {
+  testWidgetsWithLeakTracking('test edge swipe then drop back at starting point works', (WidgetTester tester) async {
     await tester.pumpWidget(
       CupertinoApp(
         onGenerateRoute: (RouteSettings settings) {
@@ -463,7 +464,7 @@ void main() {
     expect(find.text('Page 2'), isOnstage);
   });
 
-  testWidgets('CupertinoPage does not lose its state when transitioning out', (WidgetTester tester) async {
+  testWidgetsWithLeakTracking('CupertinoPage does not lose its state when transitioning out', (WidgetTester tester) async {
     final GlobalKey<NavigatorState> navigator = GlobalKey<NavigatorState>();
     await tester.pumpWidget(KeepsStateTestWidget(navigatorKey: navigator));
     expect(find.text('subpage'), findsOneWidget);
@@ -476,7 +477,7 @@ void main() {
     expect(find.text('home'), findsOneWidget);
   });
 
-  testWidgets('CupertinoPage restores its state', (WidgetTester tester) async {
+  testWidgetsWithLeakTracking('CupertinoPage restores its state', (WidgetTester tester) async {
     await tester.pumpWidget(
       RootRestorationScope(
         restorationId: 'root',
@@ -549,7 +550,7 @@ class RtlOverrideWidgetsDelegate extends LocalizationsDelegate<WidgetsLocalizati
   bool shouldReload(LocalizationsDelegate<WidgetsLocalizations> oldDelegate) => false;
 }
 
-class RtlOverrideWidgetsLocalization implements WidgetsLocalizations {
+class RtlOverrideWidgetsLocalization extends DefaultWidgetsLocalizations {
   const RtlOverrideWidgetsLocalization();
   @override
   TextDirection get textDirection => TextDirection.rtl;
@@ -608,6 +609,12 @@ class _TestRestorableWidgetState extends State<TestRestorableWidget> with Restor
   @override
   void restoreState(RestorationBucket? oldBucket, bool initialRestore) {
     registerForRestoration(counter, 'counter');
+  }
+
+  @override
+  void dispose() {
+    super.dispose();
+    counter.dispose();
   }
 
   @override

@@ -65,6 +65,7 @@ class _MenuButtonDefaultsM3 extends ButtonStyle {
   final BuildContext context;
 
   late final ColorScheme _colors = Theme.of(context).colorScheme;
+  late final TextTheme _textTheme = Theme.of(context).textTheme;
 
   @override
   MaterialStateProperty<Color?>? get backgroundColor {
@@ -84,18 +85,18 @@ class _MenuButtonDefaultsM3 extends ButtonStyle {
   MaterialStateProperty<Color?>? get foregroundColor {
     return MaterialStateProperty.resolveWith((Set<MaterialState> states) {
       if (states.contains(MaterialState.disabled)) {
-        return ${componentColor('md.comp.menu.list-item.disabled.label-text')};
+        return ${componentColor('md.comp.list.list-item.disabled.label-text')};
       }
       if (states.contains(MaterialState.pressed)) {
-        return ${componentColor('md.comp.menu.list-item.pressed.label-text')};
+        return ${componentColor('md.comp.list.list-item.pressed.label-text')};
       }
       if (states.contains(MaterialState.hovered)) {
-        return ${componentColor('md.comp.menu.list-item.hover.label-text')};
+        return ${componentColor('md.comp.list.list-item.hover.label-text')};
       }
       if (states.contains(MaterialState.focused)) {
-        return ${componentColor('md.comp.menu.list-item.focus.label-text')};
+        return ${componentColor('md.comp.list.list-item.focus.label-text')};
       }
-      return ${componentColor('md.comp.menu.list-item.label-text')};
+      return ${componentColor('md.comp.list.list-item.label-text')};
     });
   }
 
@@ -103,18 +104,18 @@ class _MenuButtonDefaultsM3 extends ButtonStyle {
   MaterialStateProperty<Color?>? get iconColor {
     return MaterialStateProperty.resolveWith((Set<MaterialState> states) {
       if (states.contains(MaterialState.disabled)) {
-        return ${componentColor('md.comp.menu.list-item.with-leading-icon.disabled.leading-icon')};
+        return ${componentColor('md.comp.list.list-item.disabled.leading-icon')};
       }
       if (states.contains(MaterialState.pressed)) {
-        return ${componentColor('md.comp.menu.list-item.with-leading-icon.pressed.icon')};
+        return ${componentColor('md.comp.list.list-item.pressed.leading-icon.icon')};
       }
       if (states.contains(MaterialState.hovered)) {
-        return ${componentColor('md.comp.menu.list-item.with-leading-icon.hover.icon')};
+        return ${componentColor('md.comp.list.list-item.hover.leading-icon.icon')};
       }
       if (states.contains(MaterialState.focused)) {
-        return ${componentColor('md.comp.menu.list-item.with-leading-icon.focus.icon')};
+        return ${componentColor('md.comp.list.list-item.focus.leading-icon.icon')};
       }
-      return ${componentColor('md.comp.menu.list-item.with-leading-icon.leading-icon')};
+      return ${componentColor('md.comp.list.list-item.leading-icon')};
     });
   }
 
@@ -127,7 +128,7 @@ class _MenuButtonDefaultsM3 extends ButtonStyle {
 
   @override
   MaterialStateProperty<Size>? get minimumSize {
-    return ButtonStyleButton.allOrNull<Size>(const Size(64.0, ${tokens['md.comp.menu.list-item.container.height']}));
+    return ButtonStyleButton.allOrNull<Size>(const Size(64.0, 48.0));
   }
 
   @override
@@ -147,13 +148,13 @@ class _MenuButtonDefaultsM3 extends ButtonStyle {
     return MaterialStateProperty.resolveWith(
       (Set<MaterialState> states) {
         if (states.contains(MaterialState.pressed)) {
-          return ${componentColor('md.comp.menu.list-item.pressed.state-layer')};
+          return ${componentColor('md.comp.list.list-item.pressed.state-layer')};
         }
         if (states.contains(MaterialState.hovered)) {
-          return ${componentColor('md.comp.menu.list-item.hover.state-layer')};
+          return ${componentColor('md.comp.list.list-item.hover.state-layer')};
         }
         if (states.contains(MaterialState.focused)) {
-          return ${componentColor('md.comp.menu.list-item.focus.state-layer')};
+          return ${componentColor('md.comp.list.list-item.focus.state-layer')};
         }
         return Colors.transparent;
       },
@@ -180,7 +181,9 @@ class _MenuButtonDefaultsM3 extends ButtonStyle {
 
   @override
   MaterialStateProperty<TextStyle?> get textStyle {
-    return MaterialStatePropertyAll<TextStyle?>(${textStyle('md.comp.menu.list-item.label-text')});
+    // TODO(tahatesser): This is taken from https://m3.material.io/components/menus/specs
+    // Update this when the token is available.
+    return MaterialStatePropertyAll<TextStyle?>(_textTheme.labelLarge);
   }
 
   @override

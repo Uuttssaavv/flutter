@@ -202,7 +202,7 @@ class _ZoomPageTransition extends StatelessWidget {
   ///
   /// See also:
   ///
-  ///  * [TransitionRoute.allowSnapshotting], which defines wether the route
+  ///  * [TransitionRoute.allowSnapshotting], which defines whether the route
   ///    transition will prefer to animate a snapshot of the entering and exiting
   ///    routes.
   final bool allowSnapshotting;
@@ -297,7 +297,7 @@ class _ZoomEnterTransition extends StatefulWidget {
   State<_ZoomEnterTransition> createState() => _ZoomEnterTransitionState();
 }
 
-class _ZoomEnterTransitionState extends State<_ZoomEnterTransition> with _ZoomTransitionBase {
+class _ZoomEnterTransitionState extends State<_ZoomEnterTransition> with _ZoomTransitionBase<_ZoomEnterTransition> {
   // See SnapshotWidget doc comment, this is disabled on web because the HTML backend doesn't
   // support this functionality and the canvaskit backend uses a single thread for UI and raster
   // work which diminishes the impact of this performance improvement.
@@ -406,7 +406,7 @@ class _ZoomExitTransition extends StatefulWidget {
   State<_ZoomExitTransition> createState() => _ZoomExitTransitionState();
 }
 
-class _ZoomExitTransitionState extends State<_ZoomExitTransition> with _ZoomTransitionBase {
+class _ZoomExitTransitionState extends State<_ZoomExitTransition> with _ZoomTransitionBase<_ZoomExitTransition> {
   late _ZoomExitTransitionPainter delegate;
 
   // See SnapshotWidget doc comment, this is disabled on web because the HTML backend doesn't
@@ -610,8 +610,35 @@ class ZoomPageTransitionsBuilder extends PageTransitionsBuilder {
   /// Constructs a page transition animation that matches the transition used on
   /// Android Q.
   const ZoomPageTransitionsBuilder({
+    this.allowSnapshotting = true,
     this.allowEnterRouteSnapshotting = true,
   });
+
+  /// Whether zoom page transitions will prefer to animate a snapshot of the entering
+  /// and exiting routes.
+  ///
+  /// If not specified, defaults to true.
+  ///
+  /// When this value is true, zoom page transitions will snapshot the entering and
+  /// exiting routes. These snapshots are then animated in place of the underlying
+  /// widgets to improve performance of the transition.
+  ///
+  /// Generally this means that animations that occur on the entering/exiting route
+  /// while the route animation plays may appear frozen - unless they are a hero
+  /// animation or something that is drawn in a separate overlay.
+  ///
+  /// {@tool dartpad}
+  /// This example shows a [MaterialApp] that disables snapshotting for the zoom
+  /// transitions on Android.
+  ///
+  /// ** See code in examples/api/lib/material/page_transitions_theme/page_transitions_theme.1.dart **
+  /// {@end-tool}
+  ///
+  /// See also:
+  ///
+  ///  * [PageRoute.allowSnapshotting], which enables or disables snapshotting
+  ///    on a per route basis.
+  final bool allowSnapshotting;
 
   /// Whether to enable snapshotting on the entering route during the
   /// transition animation.
@@ -633,7 +660,7 @@ class ZoomPageTransitionsBuilder extends PageTransitionsBuilder {
     return _ZoomPageTransition(
       animation: animation,
       secondaryAnimation: secondaryAnimation,
-      allowSnapshotting: route?.allowSnapshotting ?? true,
+      allowSnapshotting: allowSnapshotting && (route?.allowSnapshotting ?? true),
       allowEnterRouteSnapshotting: allowEnterRouteSnapshotting,
       child: child,
     );
@@ -803,7 +830,7 @@ void _updateScaledTransform(Matrix4 transform, double scale, Size size) {
   transform.translate(-dx, -dy);
 }
 
-mixin _ZoomTransitionBase {
+mixin _ZoomTransitionBase<S extends StatefulWidget> on State<S> {
   bool get useSnapshot;
 
   // Don't rasterize if:
@@ -831,12 +858,16 @@ mixin _ZoomTransitionBase {
       case AnimationStatus.dismissed:
       case AnimationStatus.completed:
         controller.allowSnapshotting = false;
-        break;
       case AnimationStatus.forward:
       case AnimationStatus.reverse:
         controller.allowSnapshotting = useSnapshot;
-        break;
     }
+  }
+
+  @override
+  void dispose() {
+    controller.dispose();
+    super.dispose();
   }
 }
 
